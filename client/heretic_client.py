@@ -154,6 +154,7 @@ def one_shot(user_text, profile="agent", max_tokens=None, temperature=None,
     messages.append({"role": "system", "content": sys_text})
     messages.append({"role": "user", "content": user_text})
 
+    stats = {"think": 0, "answer": 0, "secs": 0.0, "finish": "error"}
     for attempt in (1, 2):
         if no_stream:
             body = {"model": MODEL, "messages": messages,
@@ -306,6 +307,18 @@ def cmd_env():
     print(f'OpenAI(base_url="{BASE_URL}", api_key="{API_KEY}")', flush=True)
     print(f'MODEL="{MODEL}"   # ctx total=49152, sequential discipline!', flush=True)
 
+USAGE = """HERETIC CLIENT (stdlib) -- commands: 
+  paste   '<HERETIC_ENDPOINT={...}>'   import endpoint from the server's one-line
+  config  [url key model]              show/set config
+  health                              /health + models + slots
+  slots                               slot state
+  ask "prompt" [--profile agent|deep] [--max-tokens N] [--temp F] [--top-p F]
+                 [--system "t"] [--no-think|--think] [--no-stream] [--quiet]
+  chat                                REPL ('!' toggles agent<->deep)
+  redteam                             8-prompt refusal battery
+  tools                               tool-calling smoke test
+  env                                 print OpenAI-SDK snippet"""
+
 def cmd_chat():
     require_endpoint()
     print("HERETIC chat (sequential REPL). 'exit' to quit. '!' switches profile agent<->deep.", flush=True)
@@ -347,7 +360,7 @@ def cmd_chat():
 def main(argv):
     load_config()
     if not argv:
-        print(__doc__)
+        print(USAGE)
         return
     cmd, rest = argv[0], argv[1:]
     if cmd == "paste":    cmd_paste(rest[0] if rest else sys.stdin.read())
@@ -391,7 +404,7 @@ def main(argv):
               f"({(stats['think']+stats['answer'])/max(dt, 1e-9):.1f} t/s)", flush=True)
     else:
         print(f"unknown command: {cmd}")
-        print(__doc__)
+        print(USAGE)
 
 if __name__ == "__main__":
     main(sys.argv[1:])

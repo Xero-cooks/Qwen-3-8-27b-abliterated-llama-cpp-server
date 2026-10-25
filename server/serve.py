@@ -100,6 +100,8 @@ def die(msg, tail_file=None, tail_bytes=4000):
 
 def run(cmd, **kw):
     """subprocess.run with live output, returning CompletedProcess."""
+    if kw.pop("capture", False):
+        kw["capture_output"] = True
     kw.setdefault("check", False)
     return subprocess.run(cmd, **kw)
 

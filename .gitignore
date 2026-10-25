@@ -1,0 +1,9 @@
+# secrets never to the public repo
+client/heretic_config.json
+client/*.log
+*.log
+endpoints*.json
+HERETIC_ENDPOINT*
+__pycache__/
+*.pyc
+.DS_Store

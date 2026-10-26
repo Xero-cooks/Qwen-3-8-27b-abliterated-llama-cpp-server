@@ -291,22 +291,28 @@ def stage_adapter():
 
     if hf_token:
         try:
-            dest = SCRATCH / "adapter_hf"
-            log(f"downloading adapter from HF: {CONFIG['ADAPTER_HF_REPO']}")
-            for attempt in range(3):
+            dest_dir = SCRATCH / "adapter"
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            log(f"downloading adapter files from HF: {CONFIG['ADAPTER_HF_REPO']}")
+            
+            # Download both adapter_model.safetensors AND adapter_config.json
+            files_to_fetch = ["adapter_model.safetensors", "adapter_config.json"]
+            all_ok = True
+            for fname in files_to_fetch:
+                dest = dest_dir / fname
                 r = run(["curl", "-sL", "--fail", "--retry", "3",
                          "-H", f"Authorization: Bearer {hf_token}",
                          "-o", str(dest),
                          f"https://huggingface.co/{CONFIG['ADAPTER_HF_REPO']}/"
-                         f"resolve/main/lora_adapter/adapter_model.safetensors"])
-                if r.returncode == 0 and dest.exists() and dest.stat().st_size > 10**6:
-                    out = SCRATCH / "adapter"
-                    out.mkdir(parents=True, exist_ok=True)
-                    (out / "adapter_model.safetensors").write_bytes(dest.read_bytes())
-                    log(f"adapter fetched via HF ({dest.stat().st_size/2**20:.1f} MB)", "OK")
-                    return out
-                log(f"HF adapter attempt {attempt+1} failed (rc={r.returncode})", "WARN")
-                time.sleep(5)
+                         f"resolve/main/lora_adapter/{fname}"])
+                if r.returncode != 0 or not dest.exists() or dest.stat().st_size == 0:
+                    all_ok = False
+                    log(f"Failed to fetch {fname} from HF", "WARN")
+                    break
+            
+            if all_ok:
+                log(f"adapter files fetched via HF ({list(dest_dir.iterdir())})", "OK")
+                return dest_dir
         except Exception as e:
             log(f"HF adapter path error: {e}", "WARN")
 

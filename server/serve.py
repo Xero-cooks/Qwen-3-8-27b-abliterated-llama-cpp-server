@@ -351,24 +351,52 @@ def stage_convert(adapter_dir):
         else:
             die("could not clone llama.cpp sources at pinned tag " + CONFIG["LLAMA_BUILD"])
 
+    # Install conversion dependencies without restrictive transformers version pins
     r = run([sys.executable, "-m", "pip", "install", "-q",
-             "gguf>=0.10", "protobuf", "sentencepiece",
-             "transformers>=4.51,<5"], capture=True, timeout=600)
+             "gguf>=0.10", "protobuf", "sentencepiece", "transformers"],
+            capture=True, timeout=600)
     if r.returncode != 0:
         die("pip install for conversion failed: " + (r.stderr or "")[-500:])
 
+    # Prepare base model config directory.
+    # convert_lora_to_gguf.py needs the base model architecture definition.
+    # Loading directly from HF with --base-model-id fails because the HF repo sets
+    # model_type "qwen3_5" which standard AutoConfig rejects with KeyError.
+    # But passing --base with a local directory containing config.json triggers
+    # llama.cpp's ModelBase fallback which reads config.json via standard json.load()
+    # and registers Qwen3_5ForConditionalGeneration natively without crashing!
+    base_dir = SCRATCH / "base_cfg"
+    base_dir.mkdir(parents=True, exist_ok=True)
+    cfg_file = base_dir / "config.json"
+    if not cfg_file.exists() or cfg_file.stat().st_size == 0:
+        log("fetching base model config.json for LoRA conversion...", "INFO")
+        hf_token = os.environ.get("HF_TOKEN") or ""
+        curl_hdr = ["-H", f"Authorization: Bearer {hf_token}"] if hf_token else []
+        run(["curl", "-sL", "--fail", "--retry", "3", *curl_hdr,
+             f"https://huggingface.co/{CONFIG['BASE_MODEL_ID']}/raw/main/config.json",
+             "-o", str(cfg_file)], timeout=30)
+    if cfg_file.exists() and cfg_file.stat().st_size > 0:
+        try:
+            shutil.copyfile(cfg_file, adapter_dir / "config.json")
+        except Exception:
+            pass
+
     out = SCRATCH / "qwen38-heretic-lora.gguf"
     if not out.exists():
+        log("converting LoRA adapter to GGUF format with base config...", "INFO")
         cmd = [sys.executable, str(src / "convert_lora_to_gguf.py"),
                "--outfile", str(out),
-               "--base-model-id", CONFIG["BASE_MODEL_ID"],
+               "--base", str(base_dir),
                "--outtype", "f16",
                str(adapter_dir)]
         r = subprocess.run(cmd)
         if r.returncode != 0 or not out.exists():
-            log("conversion with --base-model-id failed; retrying bare form", "WARN")
+            log("conversion with --base base_dir failed; retrying with adapter_dir as base", "WARN")
             r = subprocess.run([sys.executable, str(src / "convert_lora_to_gguf.py"),
-                                "--outfile", str(out), str(adapter_dir)])
+                                "--outfile", str(out),
+                                "--base", str(adapter_dir),
+                                "--outtype", "f16",
+                                str(adapter_dir)])
         if r.returncode != 0 or not out.exists():
             die("LoRA->GGUF conversion failed. Check that adapter files are intact.")
     log(f"LoRA GGUF ready: {out} ({out.stat().st_size/2**20:.1f} MB)", "OK")

@@ -14,7 +14,7 @@
 
 REPO_URL = "https://github.com/Xero-cooks/Qwen-3-8-27b-abliterated-llama-cpp-server.git"
 BRANCH   = "main"
-HF_TOKEN = ""    # ← paste hf_... token here, or leave empty if using Kaggle Secret 'HF_TOKEN'
+HF_TOKEN = ""    # ← paste your hf_... token here or set Kaggle secret 'HF_TOKEN'
 
 import os
 import sys

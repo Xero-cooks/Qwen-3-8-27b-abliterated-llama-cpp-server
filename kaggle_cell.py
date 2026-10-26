@@ -12,7 +12,7 @@
 #  single line:  HERETIC_ENDPOINT={...}  → import with the client's `paste` cmd.
 # ══════════════════════════════════════════════════════════════════════════════
 
-REPO_URL = "https://github.com/YOUR-USERNAME/qwen-heretic-serve.git"  # ← EDIT after push
+REPO_URL = "https://github.com/Xero-cooks/Qwen-3-8-27b-abliterated-llama-cpp-server.git"
 BRANCH   = "main"
 HF_TOKEN = ""    # ← paste hf_... token here, or leave empty if using Kaggle Secret 'HF_TOKEN'
 
